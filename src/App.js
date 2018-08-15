@@ -1,13 +1,19 @@
 import React, { Component } from "react";
-import { BrowserRouter as Router, Route, Link, Switch } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Route,
+  Link,
+  Switch,
+  withRouter
+} from "react-router-dom";
 import "./App.css";
 import "antd/lib/slider/style/css"; // for css
-import { Slider, Row, Col, Tooltip } from "antd";
+import { Slider, Row, Col, Tooltip, Button } from "antd";
 
 class Value extends React.Component {
   constructor(props) {
     super(props);
-    props.onChange(props.default ? props.default : 5);
+    if (props.onChange) props.onChange(props.default ? props.default : 5);
   }
   render() {
     return (
@@ -37,7 +43,6 @@ class RawItem extends React.Component {
 }
 class Item extends React.Component {
   onChange = value => {
-    console.log(value);
     this.props.onChange({ item: this.props.id, value });
   };
 
@@ -73,7 +78,7 @@ class Section extends React.Component {
         {React.Children.map(this.props.children, (child, index) =>
           React.cloneElement(child, {
             onChange: this.onChange,
-            id: this.props.id + index
+            id: this.props.id + "." + index
           })
         )}
       </div>
@@ -81,23 +86,23 @@ class Section extends React.Component {
   }
 }
 
+const Share = withRouter(({ history, ...rest }) => (
+  <Button
+    onClick={() => {
+      rest.onClick(history);
+    }}
+  >
+    Share
+  </Button>
+));
+
 class Chart extends React.Component {
   state = {
     sections: {}
   };
 
-  onChange = ({ value, section, item }) => {
-    var st = this.state;
-    if (!st.sections[section]) st.sections[section] = {};
-    st.sections[section][item] = value;
-    this.setState(st);
-  };
-
-  render() {
-    const numCols = this.props.numCols ? this.props.numCols : 3;
-    const span = 24 / numCols;
-    const cols = Array.from(Array(numCols).keys()).reverse();
-    const url =
+  URL = () => {
+    return (
       "/" +
       Object.keys(this.state.sections)
         .map(s =>
@@ -105,18 +110,25 @@ class Chart extends React.Component {
             .map(i => "s" + i + "/" + this.state.sections[s][i])
             .join("/")
         )
-        .join("/");
+        .join("/")
+    );
+  };
+  updateURL = history => {
+    history.push(this.URL());
+  };
+  onChange = ({ value, section, item }) => {
+    this.setState(st => {
+      if (!st.sections[section]) st.sections[section] = {};
+      st.sections[section][item] = value;
+    });
+  };
+
+  render() {
+    const numCols = this.props.numCols ? this.props.numCols : 3;
+    const span = 24 / numCols;
+    const cols = Array.from(Array(numCols).keys()).reverse();
     return (
       <div className="Chart">
-        <Switch>
-          <Route exact path={url} render={null} /> )} />
-          <Route
-            render={({ history }) => {
-              history.push(url);
-              return null;
-            }}
-          />
-        </Switch>
         <header className="Chart-header">
           <h1 className="Chart-title">{this.props.title}</h1>
         </header>
@@ -124,7 +136,10 @@ class Chart extends React.Component {
           {cols.map(i => (
             <Col key={i} span={span}>
               {React.Children.map(this.props.children, (child, idx) =>
-                React.cloneElement(child, { onChange: this.onChange, id: idx })
+                React.cloneElement(child, {
+                  onChange: this.onChange,
+                  id: parseInt(idx, 10)
+                })
               ).slice(
                 (i * this.props.children.length) / numCols,
                 ((i + 1) * this.props.children.length) / numCols
@@ -132,11 +147,12 @@ class Chart extends React.Component {
             </Col>
           ))}
         </Row>
-        <a href={url}>Share </a>
+        <Share onClick={this.updateURL} />
       </div>
     );
   }
 }
+
 function fromMap(map) {
   map.keys.map(k => (
     <Section key={k} title={k}>
